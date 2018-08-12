@@ -46,6 +46,24 @@ func GetUserSuscriptions(userId string) []model.Suscription {
 	return suscriptions
 }
 
+func GetUsersSuscribedToSeries(seriesId int, minutes int) []model.User {
+	usersToBeNotified := []model.User{}
+
+	err := getConn().Select(&usersToBeNotified,
+		`select 
+			user.id id, user.email email
+		from
+			suscription s left join jhi_user user on s.user_id = user.id
+		where 
+			s.series_id = ? and s.minutes_notification = ?`, seriesId, minutes)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return usersToBeNotified
+}
+
 func GetUpcomingSessions() []model.SessionData {
 	futureSessions := []model.SessionData{}
 

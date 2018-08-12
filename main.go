@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"service"
 	"time"
 
 	"dao"
@@ -14,6 +15,7 @@ import (
 
 // our main function
 func main() {
+
 	go func() {
 		upcomingSessions := dao.GetUpcomingSessions()
 		now := time.Now()
@@ -30,32 +32,32 @@ func main() {
 				timer2Hour := time.NewTimer(hour2Notif)
 				timer12Hour := time.NewTimer(hours12Notif)
 				timer24Hour := time.NewTimer(hours24Notif)
-				notifInfo := sessionData.EventName + " - " + sessionData.SessionName + "(" + sessionData.SessionStartTime.String() + ")"
-				go func() {
+
+				go func(sessData model.SessionData) {
 					<-timer30Min.C
-					log.Print("Aviso 30 min: " + notifInfo)
+					processTimeout(sessData, 30)
 					timer30Min.Stop()
-				}()
-				go func() {
+				}(sessionData)
+				go func(sessData model.SessionData) {
 					<-timer1Hour.C
-					log.Print("Aviso 1 hora: " + notifInfo)
+					processTimeout(sessData, 60)
 					timer1Hour.Stop()
-				}()
-				go func() {
+				}(sessionData)
+				go func(sessData model.SessionData) {
 					<-timer2Hour.C
-					log.Print("Aviso 2 horas: " + notifInfo)
+					processTimeout(sessData, 120)
 					timer2Hour.Stop()
-				}()
-				go func() {
+				}(sessionData)
+				go func(sessData model.SessionData) {
 					<-timer12Hour.C
-					log.Print("Aviso 12 horas: " + notifInfo)
+					processTimeout(sessData, 720)
 					timer12Hour.Stop()
-				}()
-				go func() {
+				}(sessionData)
+				go func(sessData model.SessionData) {
 					<-timer24Hour.C
-					log.Print("Aviso 24 horas: " + notifInfo)
+					processTimeout(sessData, 1440)
 					timer24Hour.Stop()
-				}()
+				}(sessionData)
 			}(session)
 		}
 	}()
@@ -64,12 +66,12 @@ func main() {
 	router.HandleFunc("/suscriptions/series", getSeries).Methods("GET")
 	router.HandleFunc("/suscriptions/{id}", getUserSuscriptions).Methods("GET")
 	router.HandleFunc("/suscriptions", updateUserSuscriptions).Methods("POST")
-	//router.HandleFunc("/people/{id}", GetPerson).Methods("GET")
-	//router.HandleFunc("/people/{id}", CreatePerson).Methods("POST")
-	//router.HandleFunc("/people/{id}", DeletePerson).Methods("DELETE")
-	log.Fatal(http.ListenAndServe(":8000", router))
 
-	//start := time.Date(2018, 8, 11, 10, 15, 0, 0, time.UTC)
+	log.Fatal(http.ListenAndServe(":8000", router))
+}
+
+func processTimeout(sessionData model.SessionData, minutes int) {
+	service.ProcessNotification(&sessionData, minutes)
 }
 
 func getUpcomingSessions(w http.ResponseWriter, r *http.Request) {
@@ -97,10 +99,7 @@ func updateUserSuscriptions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	dao.UpdateUserSuscriptions(userSuscs)
-	//if err := dao.Insert(movie); err != nil {
-	//	respondWithError(w, http.StatusInternalServerError, err.Error())
-	//	return
-	//}
+
 	respondWithJson(w, http.StatusCreated, userSuscs)
 }
 
