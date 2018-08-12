@@ -99,25 +99,27 @@ func UpdateUserSuscriptions(user model.User) model.User {
 
 	_, err := tx.Exec("DELETE FROM suscription WHERE user_id = ?", user.Id)
 	if err != nil {
+		tx.Rollback()
 		log.Fatal(err)
 	}
 
-	sqlStr := "INSERT INTO suscription(user_id, series_id, sessions_suscription, results_suscription, hours_notification) VALUES "
+	sqlStr := "INSERT INTO suscription(user_id, series_id, sessions_suscription, results_suscription, minutes_notification) VALUES "
 	const rowSQL = "(?, ?, ?, ?, ?)"
 	var inserts []string
 	var vals = []interface{}{}
 	for _, row := range user.Suscriptions {
 		inserts = append(inserts, rowSQL)
-		if row.HoursNotif == 0 {
-			row.HoursNotif = 1
+		if row.MinutesNotif == 0 {
+			row.MinutesNotif = 60
 		}
-		vals = append(vals, user.Id, row.SeriesId, row.SessionsNotif, row.ResultsNotif, row.HoursNotif)
+		vals = append(vals, user.Id, row.SeriesId, row.SessionsNotif, row.ResultsNotif, row.MinutesNotif)
 	}
 	sqlStr = sqlStr + strings.Join(inserts, ",")
 
 	txStmt, err := tx.Prepare(sqlStr)
 	_, err = txStmt.Exec(vals...)
 	if err != nil {
+		tx.Rollback()
 		log.Println(err)
 	}
 	_ = tx.Commit()
