@@ -1,6 +1,7 @@
 package dao
 
 import (
+	"errors"
 	"log"
 	"strings"
 
@@ -35,7 +36,7 @@ func GetSeries() []model.Series {
 	return series
 }
 
-func GetUserSuscriptions(userId string) []model.Suscription {
+func GetUserSuscriptions(userId int) []model.Suscription {
 	suscriptions := []model.Suscription{}
 
 	err := getConn().Select(&suscriptions, "SELECT * FROM suscription WHERE user_id = ?", userId)
@@ -92,6 +93,18 @@ func GetUsers() []model.User {
 	getConn().Select(&users, "SELECT id, email FROM jhi_user")
 
 	return users
+}
+
+func GetUserByUsername(username string) (*model.User, error) {
+	user := []model.User{}
+
+	err := getConn().Select(&user, "SELECT id, email FROM jhi_user WHERE login = ?", username)
+
+	if err != nil || len(user) != 1 {
+		log.Printf("Error retrieving user using username %v", err)
+		return nil, errors.New("Invalid username")
+	}
+	return &user[0], nil
 }
 
 func UpdateUserSuscriptions(user model.User) model.User {

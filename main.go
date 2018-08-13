@@ -1,6 +1,7 @@
 package main
 
 import (
+	"authorization"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -83,13 +84,28 @@ func getSeries(w http.ResponseWriter, r *http.Request) {
 }
 
 func getUserSuscriptions(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	suscriptions := dao.GetUserSuscriptions(params["id"])
+	//This should be better handled at router level using libraries such as
+	//http://github.com/codegangsta/negroni that allows better chaining of invocations
+	authorized, username := authorization.ValidateJWT(r)
+	if !authorized {
+		respondWithError(w, http.StatusUnauthorized, "")
+	}
 
-	respondWithJson(w, http.StatusOK, suscriptions)
+	user, err := dao.GetUserByUsername(username)
+	if err != nil {
+		log.Println(err)
+		respondWithError(w, http.StatusBadRequest, err.Error())
+	} else {
+		suscriptions := dao.GetUserSuscriptions(user.Id)
+		respondWithJson(w, http.StatusOK, suscriptions)
+	}
+
 }
 
 func updateUserSuscriptions(w http.ResponseWriter, r *http.Request) {
+	if authorized, _ := authorization.ValidateJWT(r); !authorized {
+		respondWithError(w, http.StatusUnauthorized, "")
+	}
 	defer r.Body.Close()
 	var userSuscs model.User
 	if err := json.NewDecoder(r.Body).Decode(&userSuscs); err != nil {
@@ -97,7 +113,6 @@ func updateUserSuscriptions(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
-
 	dao.UpdateUserSuscriptions(userSuscs)
 
 	respondWithJson(w, http.StatusCreated, userSuscs)
