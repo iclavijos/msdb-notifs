@@ -25,6 +25,7 @@ type SessionData struct {
 	SeriesId         int       `json:"seriesId" db:"series_id"`
 	SeriesName       string    `json:"seriesName" db:"series_name"`
 	EventName        string    `json:"eventName" db:"event_name"`
+	SessionId        int       `json:"sessionId" db:"session_id"`
 	SessionName      string    `json:"sessionName" db:"session_name"`
 	SessionStartTime time.Time `json:"sessionStartTime" db:"session_start_time"`
 }

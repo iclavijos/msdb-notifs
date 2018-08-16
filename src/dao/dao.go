@@ -71,7 +71,7 @@ func GetUpcomingSessions() []model.SessionData {
 	err := getConn().Select(&futureSessions,
 		`select 
 			s.id series_id, se.edition_name series_name, 
-			ee.long_event_name event_name, es.name session_name, 
+			ee.long_event_name event_name, es.name session_name, es.id session_id, 
 			es.session_start_time session_start_time 
 		from 
 			event_session es left join event_edition ee on es.event_edition_id = ee.id 

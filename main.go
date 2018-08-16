@@ -3,19 +3,47 @@ package main
 import (
 	"authorization"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"service"
+	"sync"
 	"time"
 
 	"dao"
 	"model"
 
+	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/gorilla/mux"
 )
 
-// our main function
+var sessionTimersMap = make(map[int][]*time.Timer)
+var lock = sync.RWMutex{}
+
 func main() {
+
+	//Initialize Kafka producer object
+	p, err := kafka.NewProducer(&kafka.ConfigMap{
+		"bootstrap.servers": "localhost:9092"})
+	if err != nil {
+		panic(err)
+	}
+
+	// Delivery report handler for produced messages
+	go func() {
+		for e := range p.Events() {
+			switch ev := e.(type) {
+			case *kafka.Message:
+				if ev.TopicPartition.Error != nil {
+					fmt.Printf("Delivery failed: %v\n", ev.TopicPartition)
+				} else {
+					fmt.Printf("Delivered message to %v\n", ev.TopicPartition)
+				}
+			}
+		}
+	}()
+
+	defer p.Close()
 
 	go func() {
 		upcomingSessions := dao.GetUpcomingSessions()
@@ -34,29 +62,32 @@ func main() {
 				timer12Hour := time.NewTimer(hours12Notif)
 				timer24Hour := time.NewTimer(hours24Notif)
 
+				timers := []*time.Timer{timer30Min, timer1Hour, timer2Hour, timer12Hour, timer24Hour}
+				addTimersToMap(sessionData.SessionId, timers)
+
 				go func(sessData model.SessionData) {
 					<-timer30Min.C
-					processTimeout(sessData, 30)
+					processTimeout(p, sessionTimersMap, sessData, 30)
 					timer30Min.Stop()
 				}(sessionData)
 				go func(sessData model.SessionData) {
 					<-timer1Hour.C
-					processTimeout(sessData, 60)
+					processTimeout(p, sessionTimersMap, sessData, 60)
 					timer1Hour.Stop()
 				}(sessionData)
 				go func(sessData model.SessionData) {
 					<-timer2Hour.C
-					processTimeout(sessData, 120)
+					processTimeout(p, sessionTimersMap, sessData, 120)
 					timer2Hour.Stop()
 				}(sessionData)
 				go func(sessData model.SessionData) {
 					<-timer12Hour.C
-					processTimeout(sessData, 720)
+					processTimeout(p, sessionTimersMap, sessData, 720)
 					timer12Hour.Stop()
 				}(sessionData)
 				go func(sessData model.SessionData) {
 					<-timer24Hour.C
-					processTimeout(sessData, 1440)
+					processTimeout(p, sessionTimersMap, sessData, 1440)
 					timer24Hour.Stop()
 				}(sessionData)
 			}(session)
@@ -71,8 +102,17 @@ func main() {
 	log.Fatal(http.ListenAndServe(":8000", router))
 }
 
-func processTimeout(sessionData model.SessionData, minutes int) {
-	service.ProcessNotification(&sessionData, minutes)
+func addTimersToMap(sessionId int, timers []*time.Timer) {
+	lock.Lock()
+	defer lock.Unlock()
+	sessionTimersMap[sessionId] = timers
+}
+
+func processTimeout(producer *kafka.Producer, sessionTimersMap map[int][]*time.Timer, sessionData model.SessionData, minutes int) {
+	service.ProcessNotification(producer, &sessionData, minutes)
+	if minutes == 30 {
+		sessionTimersMap[sessionData.SessionId] = nil
+	}
 }
 
 func getUpcomingSessions(w http.ResponseWriter, r *http.Request) {
