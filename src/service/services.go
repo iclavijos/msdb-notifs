@@ -45,3 +45,30 @@ func ProcessNotification(producer *kafka.Producer, sessionData *model.SessionDat
 
 	}
 }
+
+func ProcessEventEditionEvents() {
+
+	c, err := kafka.NewConsumer(&kafka.ConfigMap{
+		"bootstrap.servers": "localhost:9092",
+		"group.id":          "eventEditionsGroup",
+		"auto.offset.reset": "earliest",
+	})
+
+	if err != nil {
+		panic(err)
+	}
+
+	c.SubscribeTopics([]string{"eventEditionTopic"}, nil)
+
+	for {
+		msg, err := c.ReadMessage(-1)
+		if err == nil {
+			fmt.Printf("Message on %s: %s\n", msg.TopicPartition, string(msg.Value))
+		} else {
+			fmt.Printf("Consumer error: %v (%v)\n", err, msg)
+			break
+		}
+	}
+
+	c.Close()
+}

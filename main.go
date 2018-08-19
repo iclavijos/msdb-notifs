@@ -29,7 +29,6 @@ func main() {
 		panic(err)
 	}
 
-	// Delivery report handler for produced messages
 	go func() {
 		for e := range p.Events() {
 			switch ev := e.(type) {
@@ -44,6 +43,8 @@ func main() {
 	}()
 
 	defer p.Close()
+
+	go service.ProcessEventEditionEvents()
 
 	go func() {
 		upcomingSessions := dao.GetUpcomingSessions()
