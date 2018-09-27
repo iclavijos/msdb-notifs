@@ -1,17 +1,14 @@
-package main
+package msdb_subscriptions
 
 import (
-	"authorization"
 	"encoding/json"
 	"fmt"
 	"log"
-	"msdb-suscriptions/src/service"
 	"net/http"
 	"sync"
 	"time"
 
-	"msdb-suscriptions/src/dao"
-	"msdb-suscriptions/src/model"
+	. "msdb-subscriptions/internal"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/gorilla/mux"
@@ -44,14 +41,14 @@ func main() {
 
 	defer p.Close()
 
-	go service.ProcessEventEditionEvents()
+	go ProcessEventEditionEvents()
 
 	go func() {
-		upcomingSessions := dao.GetUpcomingSessions()
+		upcomingSessions := GetUpcomingSessions()
 		now := time.Now()
 		for _, session := range upcomingSessions {
 
-			go func(sessionData model.SessionData) {
+			go func(sessionData SessionData) {
 				min30Notif := sessionData.SessionStartTime.Add(time.Minute * -30).Sub(now)
 				hour1Notif := sessionData.SessionStartTime.Add(time.Hour * -1).Sub(now)
 				hour2Notif := sessionData.SessionStartTime.Add(time.Hour * -2).Sub(now)
@@ -66,27 +63,27 @@ func main() {
 				timers := []*time.Timer{timer30Min, timer1Hour, timer2Hour, timer12Hour, timer24Hour}
 				addTimersToMap(sessionData.SessionId, timers)
 
-				go func(sessData model.SessionData) {
+				go func(sessData SessionData) {
 					<-timer30Min.C
 					processTimeout(p, sessionTimersMap, sessData, 30)
 					timer30Min.Stop()
 				}(sessionData)
-				go func(sessData model.SessionData) {
+				go func(sessData SessionData) {
 					<-timer1Hour.C
 					processTimeout(p, sessionTimersMap, sessData, 60)
 					timer1Hour.Stop()
 				}(sessionData)
-				go func(sessData model.SessionData) {
+				go func(sessData SessionData) {
 					<-timer2Hour.C
 					processTimeout(p, sessionTimersMap, sessData, 120)
 					timer2Hour.Stop()
 				}(sessionData)
-				go func(sessData model.SessionData) {
+				go func(sessData SessionData) {
 					<-timer12Hour.C
 					processTimeout(p, sessionTimersMap, sessData, 720)
 					timer12Hour.Stop()
 				}(sessionData)
-				go func(sessData model.SessionData) {
+				go func(sessData SessionData) {
 					<-timer24Hour.C
 					processTimeout(p, sessionTimersMap, sessData, 1440)
 					timer24Hour.Stop()
@@ -109,59 +106,59 @@ func addTimersToMap(sessionId int, timers []*time.Timer) {
 	sessionTimersMap[sessionId] = timers
 }
 
-func processTimeout(producer *kafka.Producer, sessionTimersMap map[int][]*time.Timer, sessionData model.SessionData, minutes int) {
-	service.ProcessNotification(producer, &sessionData, minutes)
+func processTimeout(producer *kafka.Producer, sessionTimersMap map[int][]*time.Timer, sessionData SessionData, minutes int) {
+	ProcessNotification(producer, &sessionData, minutes)
 	if minutes == 30 {
 		sessionTimersMap[sessionData.SessionId] = nil
 	}
 }
 
 func getUpcomingSessions(w http.ResponseWriter, r *http.Request) {
-	respondWithJson(w, http.StatusOK, dao.GetUpcomingSessions())
+	respondWithJson(w, http.StatusOK, GetUpcomingSessions())
 }
 
 func getSeries(w http.ResponseWriter, r *http.Request) {
-	respondWithJson(w, http.StatusOK, dao.GetSeries())
+	respondWithJson(w, http.StatusOK, GetSeries())
 }
 
 func getUserSuscriptions(w http.ResponseWriter, r *http.Request) {
-	authorized, username := authorization.ValidateJWT(r)
+	authorized, username := ValidateJWT(r)
 	if !authorized {
 		respondWithError(w, http.StatusUnauthorized, "")
 	}
 
-	user, err := dao.GetUserByUsername(username)
+	user, err := GetUserByUsername(username)
 	if err != nil {
 		log.Println(err)
 		respondWithError(w, http.StatusBadRequest, err.Error())
 	} else {
-		suscriptions := dao.GetUserSuscriptions(user.Id)
+		suscriptions := GetUserSuscriptions(user.Id)
 		respondWithJson(w, http.StatusOK, suscriptions)
 	}
 
 }
 
 func updateUserSuscriptions(w http.ResponseWriter, r *http.Request) {
-	authorized, username := authorization.ValidateJWT(r)
+	authorized, username := ValidateJWT(r)
 	if !authorized {
 		respondWithError(w, http.StatusUnauthorized, "")
 	}
 	defer r.Body.Close()
-	var userSuscs model.User
+	var userSuscs User
 	if err := json.NewDecoder(r.Body).Decode(&userSuscs); err != nil {
 		log.Fatalln(err)
 		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
 
-	user, err := dao.GetUserByUsername(username)
+	user, err := GetUserByUsername(username)
 	if err != nil {
 		log.Println(err)
 		respondWithError(w, http.StatusBadRequest, err.Error())
 	} else {
-		userSucs.Id = user.Id
-		dao.UpdateUserSuscriptions(userSuscs)
-		respondWithJson(w, http.StatusOK, suscriptions)
+		userSuscs.Id = user.Id
+		UpdateUserSuscriptions(userSuscs)
+		respondWithJson(w, http.StatusOK, userSuscs.Suscriptions)
 	}
 
 	respondWithJson(w, http.StatusCreated, userSuscs)

@@ -1,19 +1,17 @@
-package service
+package internal
 
 import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"msdb-suscriptions/src/dao"
-	"msdb-suscriptions/src/model"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 )
 
-func ProcessNotification(producer *kafka.Producer, sessionData *model.SessionData, minutes int) {
+func ProcessNotification(producer *kafka.Producer, sessionData *SessionData, minutes int) {
 
 	log.Printf("Processing notification of %v minutes to  %s-%s session start\n", minutes, sessionData.EventName, sessionData.SessionName)
-	users := dao.GetUsersSuscribedToSeries(sessionData.SeriesId, minutes)
+	users := GetUsersSuscribedToSeries(sessionData.SeriesId, minutes)
 
 	// Produce messages to topic (asynchronously)
 	topic := "eventNotifications"

@@ -1,4 +1,4 @@
-package dao
+package internal
 
 import (
 	"errors"
@@ -7,8 +7,6 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
-
-	"msdb-subscriptions/modelsubscriptions/model"
 )
 
 func getConn() *sqlx.DB {
@@ -28,16 +26,16 @@ func getConn() *sqlx.DB {
 	return db
 }
 
-func GetSeries() []model.Series {
-	series := []model.Series{}
+func GetSeries() []Series {
+	series := []Series{}
 
 	getConn().Select(&series, "SELECT id, name FROM series ORDER BY name ASC")
 
 	return series
 }
 
-func GetUserSuscriptions(userId int) []model.Suscription {
-	suscriptions := []model.Suscription{}
+func GetUserSuscriptions(userId int) []Suscription {
+	suscriptions := []Suscription{}
 
 	err := getConn().Select(&suscriptions, "SELECT * FROM suscription WHERE user_id = ?", userId)
 	if err != nil {
@@ -47,8 +45,8 @@ func GetUserSuscriptions(userId int) []model.Suscription {
 	return suscriptions
 }
 
-func GetUsersSuscribedToSeries(seriesId int, minutes int) []model.User {
-	usersToBeNotified := []model.User{}
+func GetUsersSuscribedToSeries(seriesId int, minutes int) []User {
+	usersToBeNotified := []User{}
 
 	err := getConn().Select(&usersToBeNotified,
 		`select 
@@ -65,8 +63,8 @@ func GetUsersSuscribedToSeries(seriesId int, minutes int) []model.User {
 	return usersToBeNotified
 }
 
-func GetUpcomingSessions() []model.SessionData {
-	futureSessions := []model.SessionData{}
+func GetUpcomingSessions() []SessionData {
+	futureSessions := []SessionData{}
 
 	err := getConn().Select(&futureSessions,
 		`select 
@@ -87,16 +85,16 @@ func GetUpcomingSessions() []model.SessionData {
 	return futureSessions
 }
 
-func GetUsers() []model.User {
-	users := []model.User{}
+func GetUsers() []User {
+	users := []User{}
 
 	getConn().Select(&users, "SELECT id, email FROM jhi_user")
 
 	return users
 }
 
-func GetUserByUsername(username string) (*model.User, error) {
-	user := []model.User{}
+func GetUserByUsername(username string) (*User, error) {
+	user := []User{}
 
 	err := getConn().Select(&user, "SELECT id, email FROM jhi_user WHERE login = ?", username)
 
@@ -107,7 +105,7 @@ func GetUserByUsername(username string) (*model.User, error) {
 	return &user[0], nil
 }
 
-func UpdateUserSuscriptions(user model.User) model.User {
+func UpdateUserSuscriptions(user User) User {
 	tx, _ := getConn().Begin()
 
 	_, err := tx.Exec("DELETE FROM suscription WHERE user_id = ?", user.Id)
